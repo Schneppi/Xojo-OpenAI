@@ -1,6 +1,39 @@
 #tag Module
 Protected Module OpenAI
 	#tag Method, Flags = &h1
+		Protected Function CosineDistance(VectorA() As Double, VectorB() As Double) As Double
+		  ' Given two vectors, this method will calculate the cosine distance between them. The result
+		  ' is a Double between -1.0 and +1.0, where +1.0 means completely identical and -1.0 means completely
+		  ' different.
+		  
+		  Return 1.0 - Abs(CosineSimilarity(VectorA, VectorB))
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h1
+		Protected Function CosineSimilarity(VectorA() As Double, VectorB() As Double) As Double
+		  ' Given two vectors, this method will calculate the cosine similarity between them. The result
+		  ' is a Double between 0.0 and 1.0, where 1.0 means completely identical and 0.0 means completely
+		  ' different.
+		  
+		  Dim dotProduct, magnitudeA, magnitudeB As Double
+		  Dim c As Integer = UBound(VectorA)
+		  If c <> UBound(VectorB) Then Raise New OpenAIException("Vector lists must be of the same length to be compared.")
+		  
+		  For i As Integer = 0 To c
+		    dotProduct = dotProduct + (vectorA(i) * vectorB(i))
+		    magnitudeA = magnitudeA + (vectorA(i) * vectorA(i))
+		    magnitudeB = magnitudeB + (vectorB(i) * vectorB(i))
+		  Next
+		  
+		  magnitudeA = Sqrt(magnitudeA)
+		  magnitudeB = Sqrt(magnitudeB)
+		  
+		  Return dotProduct / (magnitudeA * magnitudeB)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h1
 		Protected Function EstimateTokenCount(Text As String, Method As OpenAI.TokenEstimationMethod = OpenAI.TokenEstimationMethod.Max) As Double
 		  ' Method can be Average, Words, Charaters, Max, or Min. Defaults To Max
 		  ' Words is the word count divided by 0.75
@@ -99,8 +132,122 @@ Protected Module OpenAI
 		Protected OrganizationID As String
 	#tag EndProperty
 
+	#tag ComputedProperty, Flags = &h1
+		#tag Getter
+			Get
+			  Return sProxyAddress
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  sProxyAddress = value
+			End Set
+		#tag EndSetter
+		Protected ProxyAddress As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h1
+		#tag Getter
+			Get
+			  Return sProxyPassword
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  sProxyPassword = value
+			End Set
+		#tag EndSetter
+		Protected ProxyPassword As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h1
+		#tag Getter
+			Get
+			  Return sProxyPort
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  sProxyPort = value
+			End Set
+		#tag EndSetter
+		Protected ProxyPort As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h1
+		#tag Getter
+			Get
+			  Return sProxyType
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  sProxyType = value
+			End Set
+		#tag EndSetter
+		Protected ProxyType As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h1
+		#tag Getter
+			Get
+			  Return sProxyUsername
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  sProxyUsername = value
+			End Set
+		#tag EndSetter
+		Protected ProxyUsername As String
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h21
+		Private sProxyAddress As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private sProxyPassword As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private sProxyPort As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private sProxyType As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private sProxyUsername As String
+	#tag EndProperty
+
 
 	#tag Constant, Name = OPENAI_URL, Type = String, Dynamic = False, Default = \"https://api.openai.com", Scope = Private
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_HTTP, Type = Double, Dynamic = False, Default = \"0", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_HTTP1_0, Type = Double, Dynamic = False, Default = \"1", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_HTTPS, Type = Double, Dynamic = False, Default = \"2", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_HTTPS2, Type = Double, Dynamic = False, Default = \"3", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_SOCKS4, Type = Double, Dynamic = False, Default = \"4", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_SOCKS4A, Type = Double, Dynamic = False, Default = \"6", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_SOCKS5, Type = Double, Dynamic = False, Default = \"5", Scope = Protected
+	#tag EndConstant
+
+	#tag Constant, Name = PROXYTYPE_SOCKS5_HOSTNAME, Type = Double, Dynamic = False, Default = \"6", Scope = Protected
 	#tag EndConstant
 
 	#tag Constant, Name = USER_AGENT_STRING, Type = String, Dynamic = False, Default = \"Xojo-OpenAI/1.0", Scope = Private
@@ -129,7 +276,8 @@ Protected Module OpenAI
 		  PictureURL
 		  FileObject
 		  JSONObject
-		Audio
+		  Audio
+		VectorList
 	#tag EndEnum
 
 	#tag Enum, Name = TokenEstimationMethod, Type = Integer, Flags = &h1

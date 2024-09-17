@@ -34,12 +34,19 @@ Private Class OpenAIClient
 		Private Sub Constructor_HTTPSecureSocket()
 		  #If RBVersion > 2014.02 Then
 		    Dim connection As New HTTPSecureSocket
-		    connection.ConnectionType = SSLSocket.TLSv12
-		    connection.SetRequestHeader("Authorization", "Bearer " + OpenAI.APIKey)
-		    If OpenAI.OrganizationID <> "" Then
-		      connection.SetRequestHeader("OpenAI-Organization", OpenAI.OrganizationID)
-		    End If
+		    AddHandler connection.ProxyAuthenticationRequired, WeakAddressOf HTTPSecurureSocketProxyAuthHandler
 		    mClient = connection
+		    connection.ConnectionType = SSLSocket.TLSv12
+		    SetRequestHeader("Authorization", "Bearer " + OpenAI.APIKey)
+		    SetRequestHeader("User-Agent", USER_AGENT_STRING)
+		    If OpenAI.OrganizationID <> "" Then SetRequestHeader("OpenAI-Organization", OpenAI.OrganizationID)
+		    If OpenAI.ProxyAddress <> "" Then
+		      Me.ProxyAddress = OpenAI.ProxyAddress
+		      Me.ProxyPort = OpenAI.ProxyPort
+		      Me.ProxyType = OpenAI.ProxyType
+		      If OpenAI.ProxyUsername <> "" Then Me.ProxyUsername = OpenAI.ProxyUsername
+		      If OpenAI.ProxyPassword <> "" Then Me.ProxyPassword = OpenAI.ProxyPassword
+		    End If
 		  #endif
 		End Sub
 	#tag EndMethod
@@ -49,17 +56,20 @@ Private Class OpenAIClient
 		  #If USE_MBS Then
 		    Const CURLAUTH_BEARER = 64
 		    Dim curl As New CURLSMBS
+		    mClient = curl
 		    curl.OptionVerbose = True
 		    curl.CollectOutputData = True
 		    curl.OptionXOAuth2Bearer = OpenAI.APIKey
 		    curl.OptionHTTPAuth = CURLAUTH_BEARER
 		    curl.OptionUserAgent = USER_AGENT_STRING
-		    If OpenAI.OrganizationID <> "" Then
-		      curl.SetOptionHTTPHeader(Array("OpenAI-Organization: " + OpenAI.OrganizationID))
+		    If OpenAI.OrganizationID <> "" Then SetRequestHeader("OpenAI-Organization", OpenAI.OrganizationID)
+		    If OpenAI.ProxyAddress <> "" Then
+		      Me.ProxyAddress = OpenAI.ProxyAddress
+		      Me.ProxyPort = OpenAI.ProxyPort
+		      Me.ProxyType = OpenAI.ProxyType
+		      If OpenAI.ProxyUsername <> "" Then Me.ProxyUsername = OpenAI.ProxyUsername
+		      If OpenAI.ProxyPassword <> "" Then Me.ProxyPassword = OpenAI.ProxyPassword
 		    End If
-		    ' curl.OptionSSLVerifyHost = 2
-		    ' curl.OptionSSLVerifyPeer = 1
-		    mClient = curl
 		  #endif
 		End Sub
 	#tag EndMethod
@@ -68,14 +78,19 @@ Private Class OpenAIClient
 		Private Sub Constructor_RBLibcurl()
 		  #If USE_RBLIBCURL Then
 		    Dim curl As New cURLClient
+		    mClient = curl
 		    curl.EasyHandle.UseProgressEvent = False
 		    curl.EasyHandle.FailOnServerError = False
 		    curl.BearerToken = OpenAI.APIKey
 		    curl.EasyHandle.UserAgent = USER_AGENT_STRING
-		    If OpenAI.OrganizationID <> "" Then
-		      curl.RequestHeaders.SetHeader("OpenAI-Organization", OpenAI.OrganizationID)
+		    If OpenAI.OrganizationID <> "" Then SetRequestHeader("OpenAI-Organization", OpenAI.OrganizationID)
+		    If OpenAI.ProxyAddress <> "" Then
+		      Me.ProxyAddress = OpenAI.ProxyAddress
+		      Me.ProxyPort = OpenAI.ProxyPort
+		      Me.ProxyType = OpenAI.ProxyType
+		      If OpenAI.ProxyUsername <> "" Then Me.ProxyUsername = OpenAI.ProxyUsername
+		      If OpenAI.ProxyPassword <> "" Then Me.ProxyPassword = OpenAI.ProxyPassword
 		    End If
-		    mClient = curl
 		    
 		    ' A curl "share" handle allows multiple transfers to share connection caches (among other things)
 		    Dim share As libcURL.ShareHandle = ShareHandle
@@ -96,14 +111,12 @@ Private Class OpenAIClient
 		Private Sub Constructor_URLConnection()
 		  #If RBVersion > 2018.03 Then
 		    Dim connection As New URLConnection
+		    mClient = connection
 		    AddHandler connection.ContentReceived, WeakAddressOf URLConnectionContentsReceivedHandler
 		    AddHandler connection.Error, WeakAddressOf URLConnectionErrorHandler
-		    connection.RequestHeader("Authorization") = "Bearer " + OpenAI.APIKey
-		    connection.RequestHeader("User-Agent") = USER_AGENT_STRING
-		    If OpenAI.OrganizationID <> "" Then
-		      connection.RequestHeader("OpenAI-Organization") = OpenAI.OrganizationID
-		    End If
-		    mClient = connection
+		    SetRequestHeader("Authorization", "Bearer " + OpenAI.APIKey)
+		    SetRequestHeader("User-Agent", USER_AGENT_STRING)
+		    If OpenAI.OrganizationID <> "" Then SetRequestHeader("OpenAI-Organization", OpenAI.OrganizationID)
 		  #endif
 		End Sub
 	#tag EndMethod
@@ -194,6 +207,20 @@ Private Class OpenAIClient
 		    curl.Cancel = True
 		  #endif
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21
+		Private Function HTTPSecurureSocketProxyAuthHandler(Sender As Object, Realm as String, Headers as InternetHeaders, ByRef Name as String, ByRef Password as String) As Boolean
+		  #pragma Unused Sender
+		  #pragma Unused Realm
+		  #pragma Unused Headers
+		  If mProxyUser <> "" Or mProxyPassword <> "" Then
+		    Name = mProxyUser
+		    Password = mProxyPassword
+		    Return True
+		  End If
+		  
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
@@ -322,10 +349,11 @@ Private Class OpenAIClient
 		    Else
 		      curl.OptionUpload = True
 		      curl.InputData = req.StringValue
-		      curl.SetOptionHTTPHeader(Array("Content-Type: application/json"))
+		      SetRequestHeader("Content-Type", "application/json")
 		    End If
 		    
 		    curl.OptionURL = OPENAI_URL + APIEndpoint
+		    If mMBSHeaders.Ubound > -1 Then curl.SetOptionHTTPHeader(mMBSHeaders)
 		    If curl.PerformMT() = 0 Then Return curl.OutputData
 		    
 		    'error
@@ -347,6 +375,7 @@ Private Class OpenAIClient
 		Private Function SendRequest_MBS(APIEndpoint As String, RequestMethod As String = "GET") As String
 		  #If USE_MBS Then
 		    Dim curl As CURLSMBS = mClient
+		    If mMBSHeaders.Ubound > -1 Then curl.SetOptionHTTPHeader(mMBSHeaders)
 		    curl.OptionURL = OPENAI_URL + APIEndpoint
 		    curl.OptionCustomRequest = RequestMethod
 		    If curl.PerformMT() = 0 Then Return curl.OutputData
@@ -420,32 +449,19 @@ Private Class OpenAIClient
 		      If client.Post(OPENAI_URL + APIEndpoint, form) Then Return client.GetDownloadedData
 		      
 		      ' error
-		      Dim curlerr As New libcURL.cURLException(client.EasyHandle)
-		      Dim data As String = client.GetDownloadedData
-		      If data.Trim <> "" Then
-		        Dim openaierr As New OpenAIException(New JSONItem(data))
-		        curlerr.Message = openaierr.Message + EndOfLine + curlerr.Message
-		      End If
-		      Raise curlerr
-		      
+		      Raise New libcURL.cURLException(client.EasyHandle)
 		      
 		    Else ' POST a JSONItem
 		      
 		      Dim data As MemoryBlock = requestobj.StringValue()
 		      client.RequestHeaders.SetHeader("Content-Type", "application/json")
-		      client.SetRequestMethod("POST")
 		      
 		      ' perform the request
 		      If client.Put(OPENAI_URL + APIEndpoint, data) Then Return client.GetDownloadedData
 		      
 		      ' error
-		      Dim curlerr As New libcURL.cURLException(client.EasyHandle)
-		      Dim page As String = client.GetDownloadedData
-		      If page.Trim <> "" Then
-		        Dim openaierr As New OpenAIException(New JSONItem(page))
-		        curlerr.Message = openaierr.Message + EndOfLine + curlerr.Message
-		      End If
-		      Raise curlerr
+		      Raise New libcURL.cURLException(client.EasyHandle)
+		      
 		    End If
 		    
 		  #Else
@@ -466,13 +482,7 @@ Private Class OpenAIClient
 		    If client.Get(OPENAI_URL + APIEndpoint) Then Return client.GetDownloadedData()
 		    
 		    ' error
-		    Dim curlerr As New libcURL.cURLException(client.EasyHandle)
-		    Dim data As String = client.GetDownloadedData
-		    If data.Trim = "" Then
-		      Dim openaierr As New OpenAIException(New JSONItem(data))
-		      curlerr.Message = openaierr.Message + EndOfLine + curlerr.Message
-		    End If
-		    Raise curlerr
+		    Raise New libcURL.cURLException(client.EasyHandle)
 		    
 		  #Else
 		    #pragma Unused APIEndpoint
@@ -550,6 +560,31 @@ Private Class OpenAIClient
 		    #pragma Unused RequestMethod
 		  #endif
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub SetRequestHeader(Name As String, Value As String)
+		  #If USE_RBLIBCURL Then
+		    Dim client As cURLClient = mClient
+		    client.RequestHeaders.SetHeader(Name, Value)
+		    
+		  #ElseIf USE_MBS Then
+		    mMBSHeaders.Append(Name + ": " + Value)
+		    
+		  #ElseIf RBVersion > 2018.03 Then
+		    Dim client As URLConnection = mClient
+		    client.RequestHeader(Name) = Value
+		    
+		  #ElseIf RBVersion > 2014.02 Then
+		    Dim client As HTTPSecureSocket = mClient
+		    client.SetRequestHeader(Name, Value)
+		    
+		  #Else
+		    #pragma Unused Name
+		    #pragma Unused Value
+		    
+		  #endif
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
@@ -689,12 +724,256 @@ Private Class OpenAIClient
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
+		Private mMBSHeaders() As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mProxyPassword As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
+		Private mProxyUser As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21
 		Private mURLConnectionContent As String
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
 		Private mURLConnectionError As RuntimeException
 	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    Return client.Proxy.Address
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    Return curl.OptionProxy
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Return "" ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Dim client As HTTPSecureSocket = mClient
+			    Return client.HTTPProxyAddress
+			    
+			  #endif
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    client.Proxy.Address = value
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    curl.OptionProxy = value
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Raise New OpenAIException("The current HTTPS library does not support proxies.") ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Dim client As HTTPSecureSocket = mClient
+			    client.HTTPProxyAddress = value
+			    
+			  #Else
+			    #pragma Unused value
+			    
+			  #endif
+			End Set
+		#tag EndSetter
+		ProxyAddress As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    Return client.Proxy.Password
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    Return curl.OptionProxyPassword
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Return "" ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Return mProxyPassword
+			    
+			  #endif
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    client.Proxy.Password = value
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    curl.OptionProxyPassword = value
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Raise New OpenAIException("The current HTTPS library does not support proxies.") ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    mProxyPassword = value
+			    
+			  #Else
+			    #pragma Unused value
+			    
+			  #endif
+			End Set
+		#tag EndSetter
+		ProxyPassword As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    Return client.Proxy.Port
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    Return curl.OptionProxyPort
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Return 0
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Dim client As HTTPSecureSocket = mClient
+			    Return client.HTTPProxyPort
+			    
+			  #endif
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    client.Proxy.Port = value
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    curl.OptionProxyPort = value
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Raise New OpenAIException("The current HTTPS library does not support proxies.") ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Dim client As HTTPSecureSocket = mClient
+			    client.HTTPProxyPort = value
+			    
+			  #Else
+			    #pragma Unused value
+			    
+			  #endif
+			End Set
+		#tag EndSetter
+		ProxyPort As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    Dim type As libcURL.ProxyType = client.Proxy.Type
+			    Return CType(type, Int32)
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    Return curl.OptionProxyType
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Return -1
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Return 0
+			    
+			  #endif
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    client.Proxy.Type = CType(value, libcURL.ProxyType)
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    curl.OptionProxyType = value
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Raise New OpenAIException("The current HTTPS library does not support proxies.") ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    If value <> 0 Then
+			      Raise New OpenAIException("The current HTTPS library only supports HTTP proxies.") ' not supported in HTTPSecureSocket
+			    End If
+			    
+			  #Else
+			    #pragma Unused value
+			    
+			  #endif
+			End Set
+		#tag EndSetter
+		ProxyType As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    Return client.Proxy.Username
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    Return curl.OptionProxyUsername
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Return "" ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    Return mProxyUser
+			    
+			  #endif
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #If USE_RBLIBCURL Then
+			    Dim client As cURLClient = mClient
+			    client.Proxy.Username = value
+			    
+			  #ElseIf USE_MBS Then
+			    Dim curl As CURLSMBS = mClient
+			    curl.OptionProxyUsername = value
+			    
+			  #ElseIf RBVersion > 2018.03 Then
+			    Raise New OpenAIException("The current HTTPS library does not support proxies.") ' not supported in URLConnection
+			    
+			  #ElseIf RBVersion > 2014.02 Then
+			    mProxyUser = value
+			    
+			  #Else
+			    #pragma Unused value
+			    
+			  #endif
+			End Set
+		#tag EndSetter
+		ProxyUsername As String
+	#tag EndComputedProperty
 
 	#tag Property, Flags = &h21
 		Private Shared ShareHandle As Variant

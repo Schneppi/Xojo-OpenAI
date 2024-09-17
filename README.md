@@ -25,6 +25,13 @@ This example chats with an AI assistant. [**More examples**](https://github.com/
 * Analyze text for hate, threats, self-harm, sexual content, child abuse, and violence
 * Can use the [RB-libcURL](https://github.com/charonn0/RB-libcURL) wrapper, the [MonkeyBread curl plugin](https://www.monkeybreadsoftware.net/class-curlmbs.shtml), the Xojo URLConnection, or the Xojo HTTPSecureSocket to make API requests. 
 
+![XojoOpenAI1](https://github.com/charonn0/Xojo-OpenAI/assets/585485/b01f8eda-66e9-4ba1-8cad-120b67ab8c15)
+
+_This screen shot depicts the Xojo-OpenAI demo showing the result of an image generation request._
+
+## Become a sponsor
+If you use this code in a commercial project, or just want to show your appreciation, please consider sponsoring me through GitHub. https://github.com/sponsors/charonn0
+
 ## Synopsis
 
 OpenAI API endpoints are exposed through several object classes:
@@ -90,3 +97,4 @@ If you are using neither RB-libcURL nor MBS then set both `USE_RBLIBCURL` and `U
     * [Generate subtitles](https://github.com/charonn0/Xojo-OpenAI/wiki/Examples#generate-subtitles-for-a-video)
     * [Speech synthesis](https://github.com/charonn0/Xojo-OpenAI/wiki/Examples#speech-synthesis)
   * [Sending custom requests](https://github.com/charonn0/Xojo-OpenAI/wiki/Examples#sending-a-custom-request)
+  * [Training custom AI models](https://github.com/charonn0/Xojo-OpenAI/wiki/Examples#training-a-fine-tuned-ai-model)

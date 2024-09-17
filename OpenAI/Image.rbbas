@@ -3,17 +3,23 @@ Protected Class Image
 Inherits OpenAI.Response
 	#tag Method, Flags = &h0
 		Sub Constructor(ResponseData As JSONItem)
+		  ' Loads a previously created Response that was stored as JSON using Response.ToString()
+		  ' The OriginalRequest property will be Nil in re-loaded Responses.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.Constructor
+		  
 		  // Calling the overridden superclass constructor.
-		  // Constructor(ResponseData As JSONItem, Client As OpenAIClient) -- From Response
-		  Super.Constructor(ResponseData, New OpenAIClient)
+		  // Constructor(ResponseData As JSONItem, Client As OpenAIClient, OriginalRequest As OpenAI.Request) -- From Response
+		  Super.Constructor(ResponseData, New OpenAIClient, Nil)
 		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h1001
-		Protected Sub Constructor(ResponseData As JSONItem, Client As OpenAIClient)
+		Protected Sub Constructor(ResponseData As JSONItem, Client As OpenAIClient, OriginalRequest As OpenAI.Request)
 		  // Calling the overridden superclass constructor.
-		  // Constructor(ResponseData As JSONItem, Client As OpenAIClient) -- From Response
-		  Super.Constructor(ResponseData, Client)
+		  // Constructor(ResponseData As JSONItem, Client As OpenAIClient, OriginalRequest As OpenAI.Request) -- From Response
+		  Super.Constructor(ResponseData, Client, OriginalRequest)
 		  
 		End Sub
 	#tag EndMethod
@@ -34,7 +40,7 @@ Inherits OpenAI.Response
 		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/images/generations", Request)
 		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
 		  If Not result.HasName("model") And Request.Model <> Nil Then result.Value("model") = Request.Model.ID
-		  Return New OpenAI.Image(result, client)
+		  Return New OpenAI.Image(result, client, Request)
 		End Function
 	#tag EndMethod
 
@@ -72,7 +78,7 @@ Inherits OpenAI.Response
 		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/images/variations", Request)
 		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
 		  If Not result.HasName("model") And Request.Model <> Nil Then result.Value("model") = Request.Model.ID
-		  Return New OpenAI.Image(result, client)
+		  Return New OpenAI.Image(result, client, Request)
 		End Function
 	#tag EndMethod
 
@@ -117,7 +123,7 @@ Inherits OpenAI.Response
 		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/images/edits", Request)
 		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
 		  If Not result.HasName("model") And Request.Model <> Nil Then result.Value("model") = Request.Model.ID
-		  Return New OpenAI.Image(result, client)
+		  Return New OpenAI.Image(result, client, Request)
 		End Function
 	#tag EndMethod
 
@@ -156,7 +162,7 @@ Inherits OpenAI.Response
 		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/images/generations", Request)
 		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
 		  If Not result.HasName("model") And Request.Model <> Nil Then result.Value("model") = Request.Model.ID
-		  Return New OpenAI.Image(result, client)
+		  Return New OpenAI.Image(result, client, Request)
 		End Function
 	#tag EndMethod
 
@@ -244,7 +250,7 @@ Inherits OpenAI.Response
 		  If Request.NumberOfEpochs > 1 Then Return ValidationError.NumberOfEpochs
 		  ' If Request.NumberOfResults > 1 Then Return ValidationError.NumberOfResults
 		  If Request.PresencePenalty > 0.00001 Then Return ValidationError.PresencePenalty
-		  If Request.Prompt = "" Then Return ValidationError.Prompt ' required
+		  If Request.Prompt = "" And Request.SourceImage = Nil Then Return ValidationError.Prompt ' required
 		  If Request.PromptLossWeight > 0.00001 Then Return ValidationError.PromptLossWeight
 		  If Request.Purpose <> "" Then Return ValidationError.Purpose
 		  ' If Request.ResultsAsBase64 = True Then Return ValidationError.ResultsAsType

@@ -33,7 +33,9 @@ Protected Class Model
 		  Case "dall-e-2", "dall-e-3"
 		    mEndpoint = "/v1/images/generations"
 		  Else
-		    If Left(Me.ID, 3) = "GPT" Then
+		    If InStr(Me.ID, "instruct") > 0 Then
+		      mEndpoint = "/v1/completions"
+		    ElseIf Left(Me.ID, 3) = "GPT" Then
 		      mEndpoint = "/v1/chat/completions"
 		    ElseIf Left(Me.ID, 4) = "dall" Then
 		      mEndpoint = "/v1/images/generations"
@@ -60,6 +62,25 @@ Protected Class Model
 		  If Refresh Or UBound(ModelList) = -1 Then ListAvailableModels()
 		  Return UBound(ModelList) + 1
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub Delete()
+		  ' Deletes the specified fine-tuned Model. You must be the owner of the model.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Model.Delete
+		  
+		  Dim client As New OpenAIClient()
+		  Dim data As String = client.SendRequest("/v1/models/" + Me.ID, "DELETE")
+		  Dim response As JSONItem
+		  Try
+		    response = New JSONItem(data)
+		  Catch err As JSONException
+		    Raise New OpenAIException(client)
+		  End Try
+		  If response = Nil Or response.HasName("error") Then Raise New OpenAIException(response) Else ReDim ModelList(-1)
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0

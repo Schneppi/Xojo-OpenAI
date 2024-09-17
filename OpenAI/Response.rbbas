@@ -1,8 +1,18 @@
 #tag Class
 Protected Class Response
 	#tag Method, Flags = &h0
+		Sub Constructor(ResponseData As FolderItem)
+		  Dim bs As BinaryStream = BinaryStream.Open(ResponseData)
+		  Dim data As String = bs.Read(bs.Length)
+		  bs.Close
+		  Me.Constructor(New JSONItem(data))
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Sub Constructor(ResponseData As JSONItem)
-		  ' Loads a previously created Response that was stored as JSON.
+		  ' Loads a previously created Response that was stored as JSON using Response.ToString()
+		  ' The OriginalRequest property will be Nil in re-loaded Responses.
 		  '
 		  ' See:
 		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.Constructor
@@ -13,9 +23,10 @@ Protected Class Response
 	#tag EndMethod
 
 	#tag Method, Flags = &h1
-		Protected Sub Constructor(ResponseData As JSONItem, Client As OpenAIClient)
+		Protected Sub Constructor(ResponseData As JSONItem, Client As OpenAIClient, OriginalRequest As OpenAI.Request)
 		  mResponse = ResponseData
 		  mClient = Client
+		  mOriginalRequest = OriginalRequest
 		End Sub
 	#tag EndMethod
 
@@ -29,7 +40,7 @@ Protected Class Response
 		  Dim client As New OpenAIClient
 		  Dim response As JSONItem = CreateRaw(client, Endpoint, Request, RequestMethod)
 		  If response = Nil Or response.HasName("error") Then Raise New OpenAIException(response)
-		  Return New OpenAI.Response(response, client)
+		  Return New OpenAI.Response(response, client, Request)
 		  
 		End Function
 	#tag EndMethod
@@ -44,7 +55,7 @@ Protected Class Response
 		  Dim client As New OpenAIClient
 		  Dim response As JSONItem = CreateRaw(client, Endpoint, RequestMethod)
 		  If response = Nil Or response.HasName("error") Then Raise New OpenAIException(response)
-		  Return New OpenAI.Response(response, client)
+		  Return New OpenAI.Response(response, client, Nil)
 		  
 		End Function
 	#tag EndMethod
@@ -74,6 +85,36 @@ Protected Class Response
 		  End Try
 		  Return response
 		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		 Shared Function CreateRaw(Endpoint As String, Request As OpenAI.Request, RequestMethod As String = "POST") As MemoryBlock
+		  ' Perform the specified request against the specified API Endpoint, and
+		  ' return the raw binary response without any interpretation or error checking.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.CreateRaw
+		  
+		  Dim client As New OpenAIClient
+		  Dim data As String = client.SendRequest(Endpoint, request, RequestMethod)
+		  If client.LastStatusCode = 200 And client.LastErrorCode = 0 Then Return data
+		  Raise New OpenAIException(client)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		 Shared Function CreateRaw(Endpoint As String, RequestMethod As String = "GET") As MemoryBlock
+		  ' Perform the specified request against the specified API Endpoint, and
+		  ' return the raw binary response without any interpretation or error checking.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.CreateRaw
+		  
+		  Dim client As New OpenAIClient
+		  Dim data As String = client.SendRequest(Endpoint, RequestMethod)
+		  If client.LastStatusCode <> 200 Or client.LastErrorCode = 0 Then Return data
+		  Raise New OpenAIException(client)
 		End Function
 	#tag EndMethod
 
@@ -231,6 +272,25 @@ Protected Class Response
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
+		Function Operator_Convert() As JSONItem
+		  ' Returns the raw JSON of the response as received from the API.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.Operator_Convert
+		  
+		  Return mResponse
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Sub Save(SaveTo As FolderItem, Overwrite As Boolean = False)
+		  Dim bs As BinaryStream = BinaryStream.Create(SaveTo, Overwrite)
+		  bs.Write(Me.ToString)
+		  bs.Close
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
 		Function ToString() As String
 		  ' Serializes the internal JSONItem that was constructed from OpenAI's original response.
 		  '
@@ -291,9 +351,22 @@ Protected Class Response
 		Model As OpenAI.Model
 	#tag EndComputedProperty
 
+	#tag Property, Flags = &h21
+		Private mOriginalRequest As OpenAI.Request
+	#tag EndProperty
+
 	#tag Property, Flags = &h1
 		Protected mResponse As JSONItem
 	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  return mOriginalRequest
+			End Get
+		#tag EndGetter
+		OriginalRequest As OpenAI.Request
+	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0
 		#tag Note

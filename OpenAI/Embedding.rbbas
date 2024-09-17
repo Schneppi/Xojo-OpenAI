@@ -1,6 +1,20 @@
 #tag Class
-Protected Class File
+Protected Class Embedding
 Inherits OpenAI.Response
+	#tag Method, Flags = &h1000
+		Sub Constructor(ResponseData As FolderItem)
+		  ' Loads a previously created Response that was stored as JSON using Response.ToString()
+		  ' The OriginalRequest property will be Nil in re-loaded Responses.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.Constructor
+		  
+		  // Calling the overridden superclass constructor.
+		  // Constructor(ResponseData As FolderItem) -- From Response
+		  Super.Constructor(ResponseData)
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h0
 		Sub Constructor(ResponseData As JSONItem)
 		  ' Loads a previously created Response that was stored as JSON using Response.ToString()
@@ -24,115 +38,112 @@ Inherits OpenAI.Response
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		 Shared Function Count(Refresh As Boolean = False) As Integer
-		  ' Returns the number of files that belong to the user's organization.
+		 Shared Function Create(Inputs() As Integer, Model As OpenAI.Model) As OpenAI.Embedding
+		  ' Create new embedding vectors for the inputs using the specified model.
 		  '
 		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Count
-		  
-		  If Refresh Or UBound(FileList) = -1 Then ListAllFiles()
-		  Return UBound(FileList) + 1
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		 Shared Function Create(FileContent As FolderItem, Purpose As String, FileName As String = "") As OpenAI.File
-		  ' Upload a file that contains document(s) to be used across various endpoints/features.
-		  '
-		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Create
-		  ' https://platform.openai.com/docs/api-reference/files/create
-		  
-		  If FileName = "" Then FileName = FileContent.Name
-		  Dim bs As BinaryStream = BinaryStream.Open(FileContent)
-		  Dim data As String = bs.Read(bs.Length)
-		  bs.Close()
-		  Return File.Create(data, Purpose, FileName)
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
-		 Shared Function Create(FileContent As MemoryBlock, Purpose As String, FileName As String) As OpenAI.File
-		  ' Upload a file that contains document(s) to be used across various endpoints/features.
-		  '
-		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Create
-		  ' https://platform.openai.com/docs/api-reference/files/create
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Create
+		  ' https://platform.openai.com/docs/api-reference/embeddings/create
 		  
 		  Dim request As New OpenAI.Request
-		  Dim client As New OpenAIClient
-		  request.File = FileContent
-		  request.FileName = FileName
-		  request.FileMIMEType = "application/x-jsonlines"
-		  request.Purpose = Purpose
-		  If File.Prevalidate Then
-		    Dim err As ValidationError = File.IsValid(Request)
-		    If err <> ValidationError.None Then Raise New OpenAIException(err)
-		  End If
-		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/files", request)
-		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
-		  ReDim FileList(-1) ' force refresh
-		  Return New OpenAI.File(result, client, request)
+		  request.Set("input", Inputs)
+		  request.Model = Model
+		  Return Embedding.Create(request)
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub Delete()
-		  ' Deletes the specified file
+		 Shared Function Create(Request As OpenAI.Request) As OpenAI.Embedding
+		  ' Create a new embedding vector.
 		  '
 		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Delete
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Create
+		  ' https://platform.openai.com/docs/api-reference/embeddings/create
 		  
-		  Dim data As String = mClient.SendRequest("/v1/files/" + Me.ID, "DELETE")
-		  Dim response As JSONItem
-		  Try
-		    response = New JSONItem(data)
-		  Catch err As JSONException
-		    Raise New OpenAIException(mClient)
-		  End Try
-		  If response = Nil Or response.HasName("error") Then Raise New OpenAIException(response) Else ReDim FileList(-1)
-		End Sub
+		  If Embedding.Prevalidate Then
+		    Dim err As ValidationError = Embedding.IsValid(Request)
+		    If err <> ValidationError.None Then Raise New OpenAIException(err)
+		  End If
+		  Dim client As New OpenAIClient
+		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/embeddings", Request)
+		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
+		  Return New OpenAI.Embedding(result, client, Request)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		 Shared Function Create(Inputs() As String, Model As OpenAI.Model) As OpenAI.Embedding
+		  ' Create new embedding vectors for the inputs using the specified model.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Create
+		  ' https://platform.openai.com/docs/api-reference/embeddings/create
+		  
+		  Dim request As New OpenAI.Request
+		  request.Set("input", Inputs)
+		  request.Model = Model
+		  Return Embedding.Create(request)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		 Shared Function Create(Input As String, Model As OpenAI.Model) As OpenAI.Embedding
+		  ' Create a new embedding vector for the input using the specified model.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Create
+		  ' https://platform.openai.com/docs/api-reference/embeddings/create
+		  
+		  Dim request As New OpenAI.Request
+		  request.Input = Input
+		  request.Model = Model
+		  Return Embedding.Create(request)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function DistanceFrom(OtherEmbedding As OpenAI.Embedding) As Double
+		  ' Compares this embedding to the other embedding. Returns a Double between -1.0 and +1.0
+		  ' where +1.0 means completely identical and -1.0 means completely different.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.DistanceFrom
+		  
+		  Dim v1() As Double = Me.GetResult()
+		  Dim v2() As Double = OtherEmbedding.GetResult()
+		  Return OpenAI.CosineDistance(v1, v2)
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h1
 		Protected Function GetCreationDate() As Date
-		  Return time_t(mResponse.Value("created_at"))
-		  
-		Exception err As KeyNotFoundException
-		  Return Nil
+		  Return Nil ' not provided with this endpoint.
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Function GetResult(Index As Integer = 0) As Variant
-		  ' Returns the contents of the OpenAI.File. The Index parameter is ignored.
+		  ' Use this method to retrieve the response(s) to the request. The first (and often only)
+		  ' response is at index zero. The last response is at Response.ResultCount-1.
 		  '
 		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.GetResult
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Response.GetResult
 		  
-		  #pragma Unused Index
-		  If mResponse.HasName("filename") Then
-		    Dim data As String = mClient.SendRequest("/v1/files/" + ID + "/content")
-		    If mClient.LastStatusCode <> 200 Then
-		      Dim err As JSONItem
-		      Try
-		        err = New JSONItem(data)
-		      Catch error As JSONException
-		      End Try
-		      If err <> Nil Then
-		        Raise New OpenAIException(err)
-		      Else
-		        Raise New OpenAIException(mClient)
-		      End If
-		    End If
-		    Return DefineEncoding(data, Encodings.UTF8)
-		  End If
+		  Dim results As JSONItem = mResponse.Value("data")
+		  results = results.Child(Index)
+		  results = results.Value("embedding")
+		  Dim vector() As Double
+		  For i As Integer = 0 To results.Count - 1
+		    vector.Append(results.Value(i))
+		  Next
+		  Return vector
+		  
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h1
 		Protected Function GetResultType() As OpenAI.ResultType
-		  Return OpenAI.ResultType.String
+		  Return OpenAI.ResultType.VectorList
 		End Function
 	#tag EndMethod
 
@@ -145,14 +156,14 @@ Inherits OpenAI.Response
 		  If Request.ClassificationPositiveClass <> "" Then Return ValidationError.ClassificationPositiveClass
 		  If Request.ComputeClassificationMetrics <> False Then Return ValidationError.ComputeClassificationMetrics
 		  If Request.Echo <> False Then Return ValidationError.Echo
-		  If Request.File = Nil Then Return ValidationError.File ' required
-		  If Request.File.Size > 1024 * 1024 * 25 Then Return ValidationError.File ' 25MB file size limit.
-		  If Request.FileName = "" Then Return ValidationError.FileName ' required
-		  If Request.FileMIMEType = "" Then Return ValidationError.FileMIMEType ' required
+		  If Request.File <> Nil Then Return ValidationError.File
+		  ' If Request.File.Size > 1024 * 1024 * 25 Then Return ValidationError.File ' 25MB file size limit.
+		  If Request.FileName <> "" Then Return ValidationError.FileName
+		  If Request.FileMIMEType <> "" Then Return ValidationError.FileMIMEType
 		  If Request.FineTuneID <> "" Then Return ValidationError.FineTuneID
 		  If Request.FrequencyPenalty > 0.00001 Then Return ValidationError.FrequencyPenalty
 		  If Request.IsSet("quality") Then Return ValidationError.HighQuality
-		  If Request.Input <> "" Then Return ValidationError.Input
+		  If Not Request.IsSet("input") Then Return ValidationError.Input ' required
 		  If Request.Instruction <> "" Then Return ValidationError.Instruction
 		  If Request.Language <> "" Then Return ValidationError.Language
 		  If Request.LearningRateMultiplier > 0.00001 Then Return ValidationError.LearningRateMultiplier
@@ -160,13 +171,13 @@ Inherits OpenAI.Response
 		  If Request.IsSet("logprobs") Then Return ValidationError.LogProbabilities
 		  If Request.MaskImage <> Nil Then Return ValidationError.MaskImage
 		  If Request.MaxTokens > 4096 Then Return ValidationError.MaxTokens
-		  If Request.Model <> Nil Then Return ValidationError.Model
+		  If Request.Model = Nil Then Return ValidationError.Model ' required
 		  If Request.NumberOfEpochs > 1 Then Return ValidationError.NumberOfEpochs
 		  If Request.NumberOfResults > 1 Then Return ValidationError.NumberOfResults
 		  If Request.PresencePenalty > 0.00001 Then Return ValidationError.PresencePenalty
 		  If Request.Prompt <> "" Then Return ValidationError.Prompt
 		  If Request.PromptLossWeight > 0.00001 Then Return ValidationError.PromptLossWeight
-		  If Request.Purpose = "" Then Return ValidationError.Purpose ' required
+		  If Request.Purpose <> "" Then Return ValidationError.Purpose
 		  If Request.ResultsAsBase64 = True Then Return ValidationError.ResultsAsType
 		  If Request.ResultsAsJSON = True Then Return ValidationError.ResultsAsType
 		  If Request.ResultsAsJSON_Verbose = True Then Return ValidationError.ResultsAsType
@@ -193,43 +204,38 @@ Inherits OpenAI.Response
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h1
-		Protected Shared Sub ListAllFiles()
-		  ReDim FileList(-1)
-		  Dim client As New OpenAIClient
-		  Dim result As JSONItem = Response.CreateRaw(client, "/v1/files")
-		  If result = Nil Or result.HasName("error") Then Raise New OpenAIException(result)
-		  result = result.Value("data")
-		  For i As Integer = 0 To result.Count - 1
-		    FileList.Append(New OpenAI.File(result.Child(i), client, Nil))
-		  Next
-		End Sub
-	#tag EndMethod
-
 	#tag Method, Flags = &h0
-		 Shared Function Lookup(Index As Integer, Refresh As Boolean = False) As OpenAI.File
-		  ' Returns a File object for the file at Index
+		Function Operator_Subscript(Optional ResponseIndex As Integer, VectorIndex As Integer) As Double
+		  ' Returns the vector at VectorIndex from the vector list corresponding to the ResponseIndex.
+		  ' Call this method with array-access syntax. The ResponseIndex is almost always zero, and
+		  ' may be omitted.
 		  '
 		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Lookup
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Operator_Subscript
 		  
-		  If Refresh Or UBound(FileList) = -1 Then ListAllFiles()
-		  Return FileList(Index)
+		  Dim vector() As Double = Me.GetResult(ResponseIndex)
+		  Return vector(VectorIndex)
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		 Shared Function Lookup(FileID As String, Refresh As Boolean = False) As OpenAI.File
-		  ' Returns a File object for the specified file
+		Function SimilarityTo(OtherEmbedding As OpenAI.Embedding) As Double
+		  ' Compares this embedding to the other embedding. Returns a Double between -1.0 and +1.0
+		  ' where +1.0 means completely identical and -1.0 means completely different.
 		  '
 		  ' See:
-		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Lookup
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.DistanceFrom
 		  
-		  If Refresh Or UBound(FileList) = -1 Then ListAllFiles()
-		  For i As Integer = 0 To UBound(FileList)
-		    Dim f As File = FileList(i)
-		    If f.ID = FileID Then Return f
-		  Next
+		  Dim v1() As Double = Me.GetResult()
+		  Dim v2() As Double = OtherEmbedding.GetResult()
+		  Return OpenAI.CosineSimilarity(v1, v2)
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0
+		Function Vector(Optional ResponseIndex As Integer) As Double()
+		  Dim vector() As Double = Me.GetResult(ResponseIndex)
+		  Return vector
 		End Function
 	#tag EndMethod
 
@@ -237,39 +243,16 @@ Inherits OpenAI.Response
 	#tag ComputedProperty, Flags = &h0
 		#tag Getter
 			Get
-			  ' Returns the size in bytes of the specified file
+			  ' Returns the length of the vector list. The last vector is at Length-1.
 			  '
 			  ' See:
-			  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Bytes
+			  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Length
 			  
-			  Return mResponse.Value("bytes")
-			  
-			  Exception err As KeyNotFoundException
-			    Return 0
+			  Dim vector() As Double = Me.GetResult(0)
+			  Return UBound(vector) + 1
 			End Get
 		#tag EndGetter
-		Bytes As Integer
-	#tag EndComputedProperty
-
-	#tag Property, Flags = &h21
-		Private Shared FileList() As OpenAI.File
-	#tag EndProperty
-
-	#tag ComputedProperty, Flags = &h0
-		#tag Getter
-			Get
-			  ' Returns the name of the specified file
-			  '
-			  ' See:
-			  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Name
-			  
-			  Return mResponse.Value("filename")
-			  
-			  Exception err As KeyNotFoundException
-			    Return ""
-			End Get
-		#tag EndGetter
-		Name As String
+		Length As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0
@@ -294,35 +277,15 @@ Inherits OpenAI.Response
 	#tag ComputedProperty, Flags = &h0
 		#tag Getter
 			Get
-			  ' Returns the purpose string of the specified file
+			  ' Returns the original input text that was used to generate this embedding, if available.
 			  '
 			  ' See:
-			  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Purpose
+			  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.Embedding.Text
 			  
-			  Return mResponse.Value("purpose")
-			  
-			  Exception err As KeyNotFoundException
-			    Return ""
+			  If Me.OriginalRequest <> Nil Then Return Me.OriginalRequest.Input
 			End Get
 		#tag EndGetter
-		Purpose As String
-	#tag EndComputedProperty
-
-	#tag ComputedProperty, Flags = &h0
-		#tag Getter
-			Get
-			  ' Returns the object type of the specified file
-			  '
-			  ' See:
-			  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.File.Type
-			  
-			  Return mResponse.Value("object")
-			  
-			  Exception err As KeyNotFoundException
-			    Return ""
-			End Get
-		#tag EndGetter
-		Type As String
+		Text As String
 	#tag EndComputedProperty
 
 	#tag Property, Flags = &h21
@@ -331,6 +294,13 @@ Inherits OpenAI.Response
 
 
 	#tag ViewBehavior
+		#tag ViewProperty
+			Name="ID"
+			Group="Behavior"
+			Type="String"
+			EditorType="MultiLineEditor"
+			InheritedFrom="OpenAI.Response"
+		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Index"
 			Visible=true
@@ -352,9 +322,23 @@ Inherits OpenAI.Response
 			InheritedFrom="Object"
 		#tag EndViewProperty
 		#tag ViewProperty
+			Name="ResponseFormat"
+			Group="Behavior"
+			Type="String"
+			EditorType="MultiLineEditor"
+			InheritedFrom="OpenAI.Response"
+		#tag EndViewProperty
+		#tag ViewProperty
 			Name="ResultCount"
 			Group="Behavior"
 			Type="Integer"
+			InheritedFrom="OpenAI.Response"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="RevisedPrompt"
+			Group="Behavior"
+			Type="String"
+			EditorType="MultiLineEditor"
 			InheritedFrom="OpenAI.Response"
 		#tag EndViewProperty
 		#tag ViewProperty
@@ -362,6 +346,13 @@ Inherits OpenAI.Response
 			Visible=true
 			Group="ID"
 			InheritedFrom="Object"
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SystemFingerprint"
+			Group="Behavior"
+			Type="String"
+			EditorType="MultiLineEditor"
+			InheritedFrom="OpenAI.Response"
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Top"

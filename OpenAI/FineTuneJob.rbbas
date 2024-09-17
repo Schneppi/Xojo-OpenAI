@@ -2,6 +2,11 @@
 Protected Class FineTuneJob
 	#tag Method, Flags = &h0
 		Sub Cancel()
+		  ' Cancels the fine-tune job if it has not yet completed.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.FineTuneJob.Cancel
+		  
 		  Do Until mLock.TryEnter()
 		    #If RBVersion < 2020 Then
 		      App.YieldToNextThread()
@@ -9,6 +14,11 @@ Protected Class FineTuneJob
 		      Thread.YieldToNext()
 		    #EndIf
 		  Loop
+		  
+		  Select Case Me.Status
+		  Case JobStatus.Canceled, JobStatus.Failed, JobStatus.Succeeded
+		    Return ' nothing to do
+		  End Select
 		  
 		  Try
 		    Dim data As String = mClient.SendRequest("/v1/fine_tuning/jobs/" + Me.ID + "/cancel", "POST")
@@ -27,8 +37,8 @@ Protected Class FineTuneJob
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h1000
-		Sub Constructor(ResponseData As JSONItem, Client As OpenAIClient)
+	#tag Method, Flags = &h1001
+		Protected Sub Constructor(ResponseData As JSONItem, Client As OpenAIClient)
 		  mLock = New CriticalSection()
 		  mJob = ResponseData
 		  mClient = Client
@@ -95,33 +105,12 @@ Protected Class FineTuneJob
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub Delete()
-		  Do Until mLock.TryEnter()
-		    #If RBVersion < 2020 Then
-		      App.YieldToNextThread()
-		    #Else
-		      Thread.YieldToNext()
-		    #EndIf
-		  Loop
-		  
-		  Try
-		    Dim data As String = mClient.SendRequest("/v1/models/" + Me.ID, "DELETE")
-		    Dim result As JSONItem
-		    Try
-		      result = New JSONItem(data)
-		      mJob = result
-		    Catch err As JSONException
-		      Raise New OpenAIException(mClient)
-		    End Try
-		    If result.HasName("error") Then Raise New OpenAIException(result) Else ReDim FineTuneList(-1)
-		  Finally
-		    mLock.Leave()
-		  End Try
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h0
 		Function GetResultFile(Index As Integer) As OpenAI.File
+		  ' Returns an instance of OpenAI.File representing one of the files created during the fine tune job.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.FineTuneJob.GetResultFile
+		  
 		  Do Until mLock.TryEnter()
 		    #If RBVersion < 2020 Then
 		      App.YieldToNextThread()
@@ -199,6 +188,11 @@ Protected Class FineTuneJob
 
 	#tag Method, Flags = &h0
 		Function ListEvents() As JSONItem()
+		  ' Returns a JSONItem containing a list of events from a running fine-tune job.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.FineTuneJob.ListEvents
+		  
 		  Do Until mLock.TryEnter()
 		    #If RBVersion < 2020 Then
 		      App.YieldToNextThread()
@@ -212,8 +206,8 @@ Protected Class FineTuneJob
 		    Dim hasmore As Boolean
 		    Do
 		      Dim lst As JSONItem
-		      Dim endpoint As String = "/v1/fine_tuning/jobs/" + Me.ID + "/events?limit=50"
-		      If UBound(events) > -1 Then endpoint = endpoint + "&after=" + events(UBound(events)).Value("id")
+		      Dim endpoint As String = "/v1/fine_tuning/jobs/" + Me.ID + "/events"
+		      If UBound(events) > -1 Then endpoint = endpoint + "?after=" + events(UBound(events)).Value("id")
 		      Dim data As String = mClient.SendRequest(endpoint)
 		      Try
 		        lst = New JSONItem(data)
@@ -282,6 +276,11 @@ Protected Class FineTuneJob
 
 	#tag Method, Flags = &h0
 		Sub Refresh()
+		  ' Refreshes the job state and other metadata.
+		  '
+		  ' See:
+		  ' https://github.com/charonn0/Xojo-OpenAI/wiki/OpenAI.FineTuneJob.Refresh
+		  
 		  Do Until mLock.TryEnter()
 		    #If RBVersion < 2020 Then
 		      App.YieldToNextThread()
@@ -295,15 +294,15 @@ Protected Class FineTuneJob
 		    Dim result As JSONItem
 		    Try
 		      result = New JSONItem(data)
-		      mJob = result
 		    Catch err As JSONException
 		      Raise New OpenAIException(mClient)
 		    End Try
-		    If result.HasName("error") Then
+		    If result.Lookup("object", "") <> "fine_tuning.job" Then Raise New OpenAIException("Weird JSON reply!" + EndOfLine + data)
+		    If result.Lookup("error", Nil) <> Nil Then
+		      result = result.Value("error")
 		      Raise New OpenAIException(result)
-		    Else
-		      Raise New OpenAIException("Weird JSON reply!" + EndOfLine + data)
 		    End If
+		    mJob = result
 		  Finally
 		    mLock.Leave()
 		  End Try
